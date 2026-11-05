@@ -1,0 +1,102 @@
+﻿Option Explicit
+
+' ポスター公開用：元データを集計して完成シートへ転記する
+Sub CopyAndSumStock()
+    Dim wsOrigin As Worksheet, wsDone As Worksheet
+    Dim colItem As Long, colStock As Long, lastColumn As Long, lastRow As Long
+    Dim i As Long, j As Long
+    Dim itemName As String, nextName As String, originName As String
+    Dim stockValue As Variant, totalStock As Double
+    Dim found As Boolean
+    Dim originalScreenUpdating As Boolean
+
+    originalScreenUpdating = Application.ScreenUpdating
+    On Error GoTo ErrorHandler
+    Set wsOrigin = ThisWorkbook.Worksheets("元データ")
+    Set wsDone = ThisWorkbook.Worksheets("完成")
+
+    ' 元データの1行目から列を探す
+    lastColumn = wsOrigin.Cells(1, wsOrigin.Columns.Count).End(xlToLeft).Column
+    For j = 1 To lastColumn
+        If Not IsError(wsOrigin.Cells(1, j).Value) Then
+            If wsOrigin.Cells(1, j).Value = "商品名" Then colItem = j
+            If wsOrigin.Cells(1, j).Value = "在庫数" Then colStock = j
+        End If
+    Next j
+    If colItem = 0 Or colStock = 0 Then
+        MsgBox "元データの1行目に「商品名」と「在庫数」が必要です。", vbExclamation
+        Exit Sub
+    End If
+
+    lastRow = wsOrigin.Cells(wsOrigin.Rows.Count, colItem).End(xlUp).Row
+
+    ' 数量が数値以外の場合は、完成シートを書き換える前に知らせる
+    For j = 2 To lastRow
+        originName = StockNameForMatch(wsOrigin.Cells(j, colItem).Value)
+        If originName <> "" Then
+            stockValue = wsOrigin.Cells(j, colStock).Value
+            If IsError(stockValue) Then
+                MsgBox "元データの" & j & "行目の在庫数がエラーです。確認してください。", vbExclamation
+                Exit Sub
+            End If
+            If Len(Trim$(CStr(stockValue))) > 0 Then
+                If Not IsNumeric(stockValue) Then
+                    MsgBox "元データの" & j & "行目の在庫数が数値ではありません。確認してください。", vbExclamation
+                    Exit Sub
+                End If
+            End If
+        End If
+    Next j
+
+    Application.ScreenUpdating = False
+
+    ' 完成シートのA列の商品名をもとに、B列へ在庫数を書く
+    For i = 2 To wsDone.Rows.Count - 1
+        itemName = StockNameForMatch(wsDone.Cells(i, "A").Value)
+        nextName = StockNameForMatch(wsDone.Cells(i + 1, "A").Value)
+        If itemName = "" And nextName = "" Then Exit For
+
+        If itemName <> "" Then
+            totalStock = 0
+            found = False
+            For j = 2 To lastRow
+                originName = StockNameForMatch(wsOrigin.Cells(j, colItem).Value)
+                If itemName = originName Then
+                    stockValue = wsOrigin.Cells(j, colStock).Value
+                    If Len(Trim$(CStr(stockValue))) = 0 Then
+                        stockValue = 0
+                    Else
+                        stockValue = CDbl(stockValue)
+                    End If
+                    If stockValue < 0 Then stockValue = 0
+                    totalStock = totalStock + stockValue
+                    found = True
+                End If
+            Next j
+
+            If found Then
+                wsDone.Cells(i, "B").Value = totalStock
+            Else
+                wsDone.Cells(i, "B").Value = "未発見"
+            End If
+        End If
+    Next i
+
+    Application.ScreenUpdating = originalScreenUpdating
+    MsgBox "在庫数の更新が完了しました。", vbInformation
+    Exit Sub
+
+ErrorHandler:
+    Application.ScreenUpdating = originalScreenUpdating
+    MsgBox "処理を中止しました。シート名やデータを確認してください。" & vbCrLf & _
+           "詳細: " & Err.Description, vbExclamation
+End Sub
+
+' 商品名の半角・全角やスペースの差を一部吸収する
+Private Function StockNameForMatch(ByVal value As Variant) As String
+    If IsError(value) Or IsNull(value) Or IsEmpty(value) Then
+        StockNameForMatch = ""
+    Else
+        StockNameForMatch = StrConv(Replace(Replace(CStr(value), " ", ""), "　", ""), vbNarrow)
+    End If
+End Function
