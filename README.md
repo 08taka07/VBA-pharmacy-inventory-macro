@@ -1,7 +1,7 @@
 ## マクロのコード
 
  
-[▶ マクロのコードを見る](ここにコードファイルのURLを貼り付け)
+[▶ マクロのコードを見る](https://github.com/08taka07/VBA-pharmacy-inventory-macro/blob/main/VBA-code_%E3%83%9D%E3%82%B9%E3%82%BF%E3%83%BC%E5%85%AC%E9%96%8B%E7%94%A8.txt)
 
 
 コードの使い方は、この下の説明をご覧ください。
